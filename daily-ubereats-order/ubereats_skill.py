@@ -40,7 +40,7 @@ DEFAULT_POLICY: dict[str, Any] = {
     "schedule_local_time": "18:00",
     "timezone": "America/Los_Angeles",
     "mode": "dry_run",                 # dry_run = never charges. live = real (needs bound driver).
-    "paused": False,                   # hard kill switch
+    "paused": True,                    # DEMO/ASSIGNMENT MODE: armed OFF — every run no-ops at the kill switch. Set False to actually run. (Also dry_run, and the live ordering driver is unbound.)
     "require_confirmation": True,      # human must approve before checkout
     "confirmation_channel": "cli",
     "confirmation_timeout_minutes": 20,
@@ -548,6 +548,7 @@ def self_test() -> int:
 
     p = json.loads(json.dumps(DEFAULT_POLICY))
     check("default policy validates", validate_policy(p) == [])
+    p["paused"] = False  # self-test exercises the full pipeline with the kill switch OFF
     wed = date(2026, 6, 17)
     cart = choose_meal(p, wed)
     check("wednesday -> CAVA", cart["restaurant"] == "CAVA")
@@ -574,6 +575,9 @@ def self_test() -> int:
         rec = run(p, wed, state_dir=d, live=False, auto_approve=True, interactive=False,
                   inject_failure="AUTH", live_total_override=None, verbose=False)
         check("AUTH failure diagnosable", rec["outcome"] == "FAILED" and rec["error_code"] == "AUTH_FAILED")
+    pp = json.loads(json.dumps(DEFAULT_POLICY)); pp["paused"] = True
+    check("kill switch (paused) blocks everything", PAUSED in
+          check_order(choose_meal(pp, wed), pp, {"orders": []}, wed, 15.0).violations)
     print(f"\n{'ALL PASS' if not failures else 'FAILURES: ' + str(failures)}")
     return 0 if not failures else 1
 
